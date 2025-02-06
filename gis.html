@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIS Application</title>
+    <link
+      rel="stylesheet"
+      href="https://js.arcgis.com/4.31/esri/themes/light/main.css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+
+    <style>
+      #viewDiv {
+        height: 70vh;
+        margin: 0;
+        padding: 0;
+        max-height: 80vh;
+        overflow: hidden;
+        resize: vertical;
+      }
+      .head {
+        background-color: aqua;
+        padding: 0.5%;
+        margin-top: 0;
+        display: flex;
+       justify-content: space-between;
+
+      }
+      .layers{
+        list-style-type: none;
+        margin-left:-30px;
+      }
+      .main {
+        display: grid;
+      }
+      .sidebar {
+        width: 160px;
+        height: 100vh;
+        overflow: hidden;
+        top: 0;
+        position: -webkit-sticky;
+        position: sticky;
+        background-color: #eaddd9c8;
+        float: left;
+        resize: horizontal;
+      }
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+      }
+      h5 {
+        background-color: #e4e9fd;
+        text-align: center;
+        padding: 2px 0;
+        cursor: pointer;
+        font-weight: 40;
+        display: none;
+      }
+      .tabs .active {
+        background-color: #ffffff;
+        color: #4d5bf9;
+      }
+      
+      #polyDiv{
+        height: 40vh;
+        display: none;
+        overflow: hidden;
+        resize: vertical;
+      }
+      #pointDiv{
+        height: 40vh;
+        display: none;
+        overflow: hidden;
+        resize: vertical;
+      }
+      #lineDiv{
+        height: 40vh;
+        display: none;
+        overflow: hidden;
+        resize: vertical;
+      }   
+
+
+      /* @media (max-width:800px) {
+        .sidebar{
+          top: auto;
+          position: fixed;
+          width: 160px;
+          z-index: 1;
+          display: none;
+        }
+        .show{
+          display: block;
+        }
+      } */
+      /* .tab-content div {
+    display: none;
+    height: 30vh; }*/
+      /* 
+      #flexCheckChecked1:checked~#pointDiv,
+#flexCheckChecked2:checked~#lineDiv,
+#flexCheckChecked3:checked~#polyDiv {
+    display: block;
+} */
+    </style>
+  </head>
+  <script src="https://js.arcgis.com/4.31/"></script>
+  <body>
+    <div >
+      <div class="head">        
+        <div><h3> GIS Application</h3></div>
+          <div><button class="btn">Layer list</button>
+            <button class="btn">Add layers</button>
+            <button class="btn">Edit features</button>
+          </div>
+        
+      </div>     
+      <div class="sidebar" id="sidebar">
+        <div class="header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-layers-fill" viewBox="0 0 16 16">
+            <path d="M7.765 1.559a.5.5 0 0 1 .47 0l7.5 4a.5.5 0 0 1 0 .882l-7.5 4a.5.5 0 0 1-.47 0l-7.5-4a.5.5 0 0 1 0-.882z"/>
+            <path d="m2.125 8.567-1.86.992a.5.5 0 0 0 0 .882l7.5 4a.5.5 0 0 0 .47 0l7.5-4a.5.5 0 0 0 0-.882l-1.86-.992-5.17 2.756a1.5 1.5 0 0 1-1.41 0z"/>
+          </svg>          
+        </div>
+        <ul class="layers">
+          <li>
+            <input type="checkbox" id="flexCheckChecked1" />
+            <label class="form-check-label" for="flexCheckChecked">
+              point Layer
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="flexCheckChecked2" />
+            <label class="form-check-label" for="flexCheckChecked">
+              Line Layer
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="flexCheckChecked3" />
+            <label class="form-check-label" for="flexCheckChecked">
+              polygon Layer
+            </label>
+          </li>
+        </ul>
+      </div>
+      <div class="view" id="viewDiv"></div>
+
+      <div class="main">
+        <p id="p">No Layers added</p>
+        <div class="tabs"> 
+          <h5 class="active"  id="point">Point Layer</h5>
+          <h5 id="line">Line Layer</h5>
+          <h5 id="poly">polygon Layer</h5>
+        </div>
+        <div class="tab-content">
+          <div id="polyDiv"></div>
+          <div id="pointDiv"></div>
+          <div id="lineDiv"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/FeatureLayer",
+        "esri/widgets/FeatureTable",
+        "esri/widgets/LayerList",
+        "esri/widgets/Search",
+      ], function (
+        Map,
+        MapView,
+        FeatureLayer,
+        FeatureTable,
+        LayerList,
+        Search
+      ) {
+        var map = new Map({
+          basemap: "topo-vector",
+        });
+        var view = new MapView({
+          container: "viewDiv",
+          map: map,
+          center: [-116.3, 34.2],
+          zoom: 6,
+        });
+
+        
+        var polygonLayer = new FeatureLayer({
+          url: "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Military/FeatureServer/5", // Replace with your own service URL
+        });
+        document.getElementById("flexCheckChecked3").onclick = function () {
+          if (this.checked) {
+            map.add(polygonLayer);
+            document.getElementById("poly").style.display = "block";
+            document.getElementById("p").style.display = "none";
+            console.log("added polygon Layer");
+          } else {
+            map.remove(polygonLayer);
+            document.getElementById("poly").style.display = "none";
+            document.getElementById("polyDiv").style.display ="none";
+            console.log("removed polygon layer");
+          }
+        };
+
+        // Add a line feature layer
+        var lineLayer = new FeatureLayer({
+          url: "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Military/FeatureServer/4", // Line Layer URL
+        });
+        document.getElementById("flexCheckChecked2").onclick = function () {
+          if (this.checked) {
+            map.add(lineLayer);
+            document.getElementById("line").style.display = "block";
+            document.getElementById("p").style.display = "none";
+            console.log("added line Layer");
+          } else {
+            map.remove(lineLayer);
+            document.getElementById("line").style.display = "none";
+            document.getElementById("lineDiv").style.display ="none";
+            console.log("removed line layer");
+          }
+        };
+        // Add a point feature layer
+        var pointLayer = new FeatureLayer({
+          url: "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Military/FeatureServer/3", // Point Layer URL
+        });
+        document.getElementById("flexCheckChecked1").onclick = function () {
+          if (this.checked) {
+            map.add(pointLayer);
+            document.getElementById("point").style.display = "block";
+            document.getElementById("p").style.display = "none";
+            console.log("added point Layer");
+          } else {
+            map.remove(pointLayer);
+            document.getElementById("point").style.display = "none";
+            document.getElementById("pointDiv").style.display ="none";
+            console.log("removed point layer");
+            
+          }
+        };
+
+        
+        //feature layer
+        const featureLayer = new FeatureLayer({
+          url: "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/CollegesUniversities/FeatureServer/0",
+          title: "US Colleges and Universities",
+        });
+
+        const featureTable = new FeatureTable({
+          view: view,
+          layer: pointLayer,
+          multiSortEnabled: true,
+          visibleElements: { selectionColumn: false },
+          tableTemplate: {
+            // autocastable to TableTemplate
+            // The table template's columnTemplates are used to determine which attributes are shown in the table
+            columnTemplates: [
+              // Array of either FieldColumnTemplates or GroupColumnTemplates
+              {
+                // autocastable to FieldColumnTemplate
+                type: "field",
+                fieldName: "objectid",
+                label: "ID",
+                // This field will not be shown in the table
+                visible: false,
+              },
+              {
+                type: "field",
+                fieldName: "datetimevalid",
+              },
+              {
+                type: "field",
+                fieldName: "datetimeexpired",
+              },
+              {
+                type: "field",
+                fieldName: "distance",
+              },
+              {
+                type: "field",
+                fieldName: "symbolname",
+              },
+            ],
+          },
+          container: document.getElementById("pointDiv"),
+        });
+
+        const featureTable1 = new FeatureTable({
+          view: view,
+          layer: lineLayer,
+          multiSortEnabled: true,
+          visibleElements: { selectionColumn: false },
+          tableTemplate: {
+            // autocastable to TableTemplate
+            // The table template's columnTemplates are used to determine which attributes are shown in the table
+            columnTemplates: [
+              // Array of either FieldColumnTemplates or GroupColumnTemplates
+              {
+                // autocastable to FieldColumnTemplate
+                type: "field",
+                fieldName: "objectid",
+                label: "ID",
+                // This field will not be shown in the table
+                visible: false,
+              },
+              {
+                type: "field",
+                fieldName: "datetimevalid",
+              },
+              {
+                type: "field",
+                fieldName: "datetimeexpired",
+              },
+              {
+                type: "field",
+                fieldName: "distance",
+              },
+              {
+                type: "field",
+                fieldName: "Shape__Length",
+              },
+            ],
+          },
+          container: document.getElementById("lineDiv"),
+        });
+
+        const featureTable2 = new FeatureTable({
+          view: view,
+          layer: polygonLayer,
+          multiSortEnabled: true,
+          visibleElements: { selectionColumn: false },
+          tableTemplate: {
+            // autocastable to TableTemplate
+            // The table template's columnTemplates are used to determine which attributes are shown in the table
+            columnTemplates: [
+              // Array of either FieldColumnTemplates or GroupColumnTemplates
+              {
+                // autocastable to FieldColumnTemplate
+                type: "field",
+                fieldName: "objectid",
+                label: "ID",
+                // This field will not be shown in the table
+                visible: false,
+              },
+              {
+                type: "field",
+                fieldName: "datetimevalid",
+              },
+              {
+                type: "field",
+                fieldName: "datetimeexpired",
+              },
+              {
+                type: "field",
+                fieldName: "distance",
+              },
+              {
+                type: "field",
+                fieldName: "Shape__Length",
+              },
+            ],
+          },
+          container: document.getElementById("polyDiv"),
+        });
+
+        var searchWidget = new Search({ view: view });
+        view.ui.add(searchWidget, "top-right");
+        // const layerList = new LayerList({
+        //   view: view,
+        // });
+        // view.ui.add(layerList, "top-left");
+
+        lineLayer.when(() => {
+          lineLayer
+            .queryFeatures({
+              where: "1=1", // Query all features
+              outFields: ["*"], // Fetch all fields
+              returnGeometry: true, // Include geometry in the result
+            })
+            .then(function (results) {
+              const result = results.features[0].attributes;
+              console.log("Line Layer Features:", result);
+            })
+            .catch(function (error) {
+              console.error("Error querying line layer:", error);
+            });
+        });
+
+        polygonLayer.when(() => {
+          polygonLayer
+            .queryFeatures({
+              where: "1=1", // Query all features
+              outFields: ["*"], // Fetch all fields
+              returnGeometry: true, // Include geometry in the result
+            })
+            .then(function (results) {
+              console.log("polygon Line Layer Features:", results.features);
+            })
+            .catch(function (error) {
+              console.error("Error querying line layer:", error);
+            });
+        });
+        pointLayer.when(() => {
+          pointLayer
+            .queryFeatures({
+              where: "1=1",
+              outFields: ["OBJECTID", "SymbolName", "Distance"],
+              returnGeometry: true, // Include geometry in the result
+            })
+            .then(function (results) {
+              console.log("point Layer Features:", results.features);
+            })
+            .catch(function (error) {
+              console.error("Error querying line layer:", error);
+            });
+        });
+
+        let tabs = document.querySelectorAll(".tabs h5");
+        let tabContents = document.querySelectorAll(".tab-content div");
+
+        tabs.forEach((tab, index) => {
+          tab.addEventListener("click", () => {
+
+            tabs.forEach((tab) => {
+              tab.classList.remove("active");
+            });
+            tabs[index].classList.add("active");
+          });
+        });
+
+          document.getElementById("point").onclick= function(){
+            document.getElementById("pointDiv").style.display ="block";
+            document.getElementById("polyDiv").style.display ="none";
+            document.getElementById("lineDiv").style.display ="none";
+          }
+
+          document.getElementById("poly").onclick= function(){
+            document.getElementById("polyDiv").style.display ="block";
+            document.getElementById("pointDiv").style.display ="none";
+            document.getElementById("lineDiv").style.display ="none";
+          }
+          document.getElementById("line").onclick= function(){
+            document.getElementById("lineDiv").style.display ="block";
+            document.getElementById("pointDiv").style.display ="none";
+            document.getElementById("polyDiv").style.display ="none";
+          }
+
+          document.getElementById("button").onclick=
+          function (){
+            document.getElementById("sidebar").classList.toggle('show')
+          }
+      });
+    </script>
+    
+  </body>
+</html>
